@@ -21,7 +21,10 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#define USE_PKCS11_ENGINE
 #include <openssl/engine.h>
+#endif
 
 /*
  * OpenSSL 3.0 deprecates the OpenSSL's ENGINE API.
@@ -56,7 +59,7 @@ static void display_openssl_errors(int l)
 	}
 }
 
-static void drain_openssl_errors(void)
+static __attribute__((unused)) void drain_openssl_errors(void)
 {
 	const char *file;
 	int line;
@@ -119,6 +122,7 @@ int main(int argc, char **argv)
 		fclose(f);
 		exit(0);
 	} else if (!strncmp(cert_src, "pkcs11:", 7)) {
+#if defined(USE_PKCS11_ENGINE)
 		ENGINE *e;
 		struct {
 			const char *cert_id;
@@ -141,6 +145,9 @@ int main(int argc, char **argv)
 		ENGINE_ctrl_cmd(e, "LOAD_CERT_CTRL", 0, &parms, NULL, 1);
 		ERR(!parms.cert, "Get X.509 from PKCS#11");
 		write_cert(parms.cert);
+#else
+		ERR(1, "PKCS#11 not supported: %s", cert_src);
+#endif
 	} else {
 		BIO *b;
 		X509 *x509;
